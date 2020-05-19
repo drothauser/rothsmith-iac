@@ -1,0 +1,1 @@
+aws s3 sync %USERPROFILE%\git\rothsmith-iac s3://rothsmith-iac/ --exclude=".*" --delete

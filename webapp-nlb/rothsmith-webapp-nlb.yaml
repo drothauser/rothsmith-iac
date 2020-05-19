@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Creates an ELB, ASG, and LC to provide a service
+Parameters:
+  ElbSNs:
+    #Type: 'List<AWS::EC2::Subnet::Id>'
+    Type: String 
+    Description: The list of SubnetIds in your Virtual Private Cloud (VPC) for your ELB
+  ElbSGs:
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+    Description: The list of Security Groups used by your ELB
+  ElbPort:
+    Type: String
+    Description: The port the ELB listens on
+  Ec2SNs:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: EC2 Instance Subnets
+  Ec2SGs:
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+    Description: Security Groups for EC2 instance 
+  AmiId:
+    Type: String
+    Description: Amazon Machine Image ID
+  Ec2Role:
+    Type: String
+    Description: The EC2 Role/Profile name
+  Ec2Type:
+    Type: String
+    Description: The EC2 Instance Type
+  Ec2Name:
+    Type: String
+    Description: Tag name for the EC2 instance    
+  Ec2Owner:
+    Type: String    
+    Description: The administrator of this instance's email address
+  Ec2Desc:
+    Type: String
+    Description: EC2 instance's description
+  Ec2Port:
+    Type: String
+    Description: The port the EC2 instance's application listens on
+  Scaling:
+    Type: CommaDelimitedList
+    Description: Scaling dimensions of the Autoscaling Group - min, max, desired
+  ElbTier:
+    Type: String
+    Default: public
+    AllowedValues:
+      - public
+      - private
+    Description: Will this service be public facing or in a private network layer
+  SvcCode:
+    Type: String
+    Description: The service code to identify what initialization script to run in userdata
+  VpcId:
+    Type: String
+    Description: The VPC Id
+  HealthCheckType:
+    Type: String
+    Default: ELB
+    AllowedValues:
+      - EC2
+      - ELB
+Mappings:
+  TierMap:
+    public:
+      scheme: internet-facing
+    private:
+      scheme: internal
+Resources:
+  LoadBalancer: # Network Load Balancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier]]
+      Scheme: !FindInMap
+        - TierMap
+        - !Ref ElbTier
+        - scheme
+      Subnets: !Split [",", !Ref ElbSNs]
+      Type: network
+      Tags:
+      - Key: Name
+        Value: !Ref Ec2Name
+  LoadBalancerListener: 
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref ElbPort
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: !Ref Ec2Port
+      Protocol: TCP
+      HealthCheckIntervalSeconds: 30
+      #UnhealthyThresholdCount: 5
+      HealthCheckPort: !Ref Ec2Port
+      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier, "TG"]]
+      VpcId:
+        Ref: VpcId
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60
+      #TargetType: ip
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata: 
+      AWS::CloudFormation::Authentication:  
+        S3AccessCreds:  
+            type: "S3"  
+            roleName: !Ref Ec2Role  
+            buckets:  
+                - "rothsmith-scripts"
+      AWS::CloudFormation::Init: 
+        configSets:
+          web-ui: 
+            - "web-proxy"
+            - "tomcat"
+          web-proxy:
+            files:
+               /var/www/html/index.html: 
+                content: !Sub | 
+                    <html>
+                    <head>
+                      <title>${Ec2Name}</title>
+                    </head>
+                    <body>
+                      Hello ${Ec2Name}
+                    </body>
+                    </html>
+                mode: "000644"
+                owner: "root"
+                group: "root"
+            packages: 
+               yum: 
+                 httpd: []
+            services: 
+               sysvinit: 
+                 httpd: 
+                   enabled: "true"
+                   ensureRunning: "true"
+          tomcat:
+            packages: 
+              yum: 
+                java-1.8.0-openjdk: []              
+    Properties:
+      AssociatePublicIpAddress: true
+      IamInstanceProfile: !Ref Ec2Role
+      InstanceType: !Ref Ec2Type
+      ImageId: !Ref AmiId
+      KeyName: RothsmithKeyPair
+      SecurityGroups: !Ref Ec2SGs
+      UserData:
+        "Fn::Base64":
+          !Sub |
+          #!/bin/bash
+          /opt/aws/bin/cfn-init -v -c web-ui -s ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com          
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      DesiredCapacity: !Select [ "2", !Ref Scaling ]
+      HealthCheckGracePeriod: 600
+      #LoadBalancerNames:
+      #- Ref: LoadBalancer
+      TargetGroupARNs: 
+        - !Ref TargetGroup
+      MinSize: !Select [ "0", !Ref Scaling ]
+      MaxSize: !Select [ "1", !Ref Scaling ]
+      VPCZoneIdentifier: !Ref Ec2SNs
+      HealthCheckType: !Ref HealthCheckType
+      Tags:
+        - Key: Name
+          Value: !Ref Ec2Name
+          PropagateAtLaunch: "true"
+        - Key: Owner
+          Value: !Ref Ec2Owner
+          PropagateAtLaunch: "true"
+        - Key: Description
+          Value: !Ref Ec2Desc
+          PropagateAtLaunch: "true"
+Outputs:
+  ElbName:
+    Description: Load Balancer Resource
+    Value: !Ref LoadBalancer
+  ElbDnsName:
+    Description: DNS Name for Elastic Load Balancer
+    Value: !GetAtt LoadBalancer.DNSName
+  ElbDnsKVP:
+    Description: Key-value pair for a DNS entry in a hashtable.
+    Value: !Join ["=", [!Ref SvcCode,  !GetAtt LoadBalancer.DNSName]]

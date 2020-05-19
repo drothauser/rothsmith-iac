@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Rothsmith Applications
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Rothsmith application configuration parameters
+      Parameters:
+      - VPCStack
+      - S3Bucket
+    ParameterLabels:
+      VPCStack:
+        default: Enter the stack name used to create the VPC.  
+      S3Bucket:
+        default: Enter S3 bucket name that stores the CloudFormation templates
+Parameters:
+  VPCStack:
+    Type: String
+    Default: 'ROTHSMITH-VPC'
+    Description: The VPC stack to obtain exported values from
+  S3Bucket:
+    Type: String
+    Default: rothsmith-iac
+    Description: The S3 bucket containing CloudFormation templates
+  Ec2Role:
+    Type: String
+    Default: DevOps
+    Description: The EC2 Role/Profile name
+Mappings:
+  ServerMap: 
+    webApp1: 
+      ami: "ami-0323c3dd2da7fb37d"
+      elbPort: '80'
+      ec2Port: '80'      
+      scaling: "1,1,1"
+      type: "t2.small"
+      name: WebServer1
+      owner: drothauser@yahoo.com
+      description: Web Application 1
+      svcCode: web
+      elbTier: public
+    webApp2: 
+      ami: "ami-0323c3dd2da7fb37d"
+      elbPort: '80'
+      ec2Port: '80'      
+      scaling: "1,1,1"
+      type: "t2.small"
+      name: WebServer2
+      owner: drothauser@yahoo.com
+      description: Web Application 2
+      svcCode: web
+      elbTier: public
+Resources:
+  S3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+  S3RolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: s3access
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: s3:*
+          Resource: "*"
+      Roles:
+      - Ref: S3AccessRole
+  S3InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: S3AccessRole
+  WebApp1:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join
+        - ''
+        - - 'https://s3.amazonaws.com/'
+          - !Ref S3Bucket
+          - '/webapp-nlb/rothsmith-webapp-nlb.yaml'
+      Parameters:
+        ElbSNs: !Join
+          - ','
+          - - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet1'
+            - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet2'
+        ElbSGs: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-PublicInstanceSG'
+        Ec2SNs: !Join
+          - ','
+          - - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet1'
+            - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet2'
+        Ec2SGs: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-PublicInstanceSG'
+        AmiId: !FindInMap [ServerMap, webApp1, ami]
+        ElbPort: !FindInMap [ServerMap, webApp1, elbPort]
+        Ec2Port: !FindInMap [ServerMap, webApp1, ec2Port]
+        Ec2Role: !Ref Ec2Role
+        Ec2Type: !FindInMap [ServerMap, webApp1, type]
+        Ec2Name: !FindInMap [ServerMap, webApp1, name]
+        Ec2Owner: !FindInMap [ServerMap, webApp1, owner]
+        Ec2Desc: !FindInMap [ServerMap, webApp1, description]        
+        ElbTier: !FindInMap [ServerMap, webApp1, elbTier]   
+        Scaling: !FindInMap [ServerMap, webApp1, scaling] 
+        SvcCode: !FindInMap [ServerMap, webApp1, svcCode]
+        VpcId: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-VPCID' 
+  WebApp2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join
+        - ''
+        - - 'https://s3.amazonaws.com/'
+          - !Ref S3Bucket
+          - '/webapp-nlb/rothsmith-webapp-nlb.yaml'
+      Parameters:
+        ElbSNs: !Join
+          - ','
+          - - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet1'
+            - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet2'
+        ElbSGs: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-PublicInstanceSG'
+        Ec2SNs: !Join
+          - ','
+          - - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet1'
+            - 'Fn::ImportValue': 
+                !Sub '${VPCStack}-PublicSubnet2'
+        Ec2SGs: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-PublicInstanceSG'
+        AmiId: !FindInMap [ServerMap, webApp2, ami]
+        ElbPort: !FindInMap [ServerMap, webApp2, elbPort]
+        Ec2Port: !FindInMap [ServerMap, webApp2, ec2Port]
+        Ec2Role: !Ref Ec2Role
+        Ec2Type: !FindInMap [ServerMap, webApp2, type]
+        Ec2Name: !FindInMap [ServerMap, webApp2, name]
+        Ec2Owner: !FindInMap [ServerMap, webApp2, owner]
+        Ec2Desc: !FindInMap [ServerMap, webApp2, description]        
+        ElbTier: !FindInMap [ServerMap, webApp2, elbTier]   
+        Scaling: !FindInMap [ServerMap, webApp2, scaling] 
+        SvcCode: !FindInMap [ServerMap, webApp2, svcCode]
+        VpcId: 
+          'Fn::ImportValue': 
+            !Sub '${VPCStack}-VPCID'
+Outputs:
+  WebApp1URL:
+    Description: Web Application 1 URL
+    Value: !Join ['', ['http://', !GetAtt [WebApp1, Outputs.ElbDnsName]]]
+    Export:
+      Name: !Sub "${AWS::StackName}-WebApp1URL"
+  WebApp1DNS:
+    Description: Web Application 1 DNS
+    Value: !GetAtt [WebApp1, Outputs.ElbDnsName]
+    Export:
+      Name: !Sub "${AWS::StackName}-WebApp1DNS"      
+  WebApp2URL:
+    Description: Web Application 2 URL
+    Value: !Join ['', ['http://', !GetAtt [WebApp2, Outputs.ElbDnsName]]]
+    Export:
+      Name: !Sub "${AWS::StackName}-WebApp2URL"
+  WebApp2DNS:
+    Description: Web Application 2 DNS
+    Value: !GetAtt [WebApp2, Outputs.ElbDnsName]
+    Export:
+      Name: !Sub "${AWS::StackName}-WebApp2DNS"
