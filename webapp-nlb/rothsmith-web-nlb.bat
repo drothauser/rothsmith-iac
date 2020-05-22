@@ -7,7 +7,7 @@ setlocal
 if "%1"=="--help" (
    goto syntax
 )
-set TEMPLATE_URL="https://s3.amazonaws.com/rothsmith-iac/webapp-nlb/rothsmith-weblayer-nlb.yaml"
+set TEMPLATE_URL="https://s3.amazonaws.com/rothsmith-iac/webapp-nlb/rothsmith-web-nlb.yaml"
 if "%1"=="--file" (
    set TEMPLATE_URL="file://rothsmith-apps-nlb.yaml"   
 )
@@ -15,7 +15,7 @@ if "%1"=="--file" (
 aws cloudformation create-stack^
  --capabilities CAPABILITY_IAM ^
  --disable-rollback ^
- --stack-name ROTHSMITH-WEBLAYER-NLB^
+ --stack-name ROTHSMITH-WEB-NLB^
  --template-url %TEMPLATE_URL% ^
  --parameters^
     ParameterKey=VPCStack,ParameterValue=^"ROTHSMITH-VPC^" ^

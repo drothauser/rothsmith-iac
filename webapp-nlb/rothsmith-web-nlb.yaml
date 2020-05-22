@@ -162,6 +162,16 @@ Resources:
         VpcId: 
           'Fn::ImportValue': 
             !Sub '${VPCStack}-VPCID'
+  Route53RecordSets:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['', ['https://s3.amazonaws.com/', !Ref S3Bucket, '/webapp-nlb/rothsmith-web-route53.yaml' ]]
+      Parameters:
+        PrimaryNLBDnsName: !GetAtt [WebApp1, Outputs.ElbDnsName]
+        PrimaryNLBZoneId: !GetAtt [WebApp1, Outputs.ElbZoneId]
+        StandbyNLBDnsName: !GetAtt [WebApp2, Outputs.ElbDnsName]
+        StandbyNLBZoneId: !GetAtt [WebApp2, Outputs.ElbZoneId]     
+      
 Outputs:
   WebApp1URL:
     Description: Web Application 1 URL

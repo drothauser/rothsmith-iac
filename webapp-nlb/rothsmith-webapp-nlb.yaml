@@ -95,8 +95,8 @@ Resources:
     Properties:
       Port: !Ref Ec2Port
       Protocol: TCP
-      HealthCheckIntervalSeconds: 30
-      #UnhealthyThresholdCount: 5
+      HealthCheckIntervalSeconds: 10
+      #UnhealthyThresholdCount: 2
       HealthCheckPort: !Ref Ec2Port
       Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier, "TG"]]
       VpcId:
@@ -118,35 +118,35 @@ Resources:
       AWS::CloudFormation::Init: 
         configSets:
           web-ui: 
-            - "web-proxy"
+            - "webProxy"
             - "tomcat"
-          web-proxy:
-            files:
-               /var/www/html/index.html: 
-                content: !Sub | 
-                    <html>
-                    <head>
-                      <title>${Ec2Name}</title>
-                    </head>
-                    <body>
-                      Hello ${Ec2Name}
-                    </body>
-                    </html>
-                mode: "000644"
-                owner: "root"
-                group: "root"
-            packages: 
-               yum: 
-                 httpd: []
-            services: 
-               sysvinit: 
-                 httpd: 
-                   enabled: "true"
-                   ensureRunning: "true"
-          tomcat:
-            packages: 
-              yum: 
-                java-1.8.0-openjdk: []              
+        webProxy:
+          files:
+            /var/www/html/index.html: 
+              content: !Sub | 
+                  <html>
+                  <head>
+                    <title>${Ec2Name}</title>
+                  </head>
+                  <body>
+                    Hello ${Ec2Name}
+                  </body>
+                  </html>
+              mode: "000644"
+              owner: "root"
+              group: "root"
+          packages: 
+            yum: 
+              httpd: []
+          services: 
+            sysvinit: 
+              httpd: 
+                enabled: "true"
+                ensureRunning: "true"
+        tomcat:
+          packages: 
+            yum: 
+              java-1.8.0-openjdk: []              
     Properties:
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref Ec2Role
@@ -185,11 +185,14 @@ Resources:
           PropagateAtLaunch: "true"
 Outputs:
   ElbName:
-    Description: Load Balancer Resource
+    Description: "Load Balancer Resource"
     Value: !Ref LoadBalancer
   ElbDnsName:
-    Description: DNS Name for Elastic Load Balancer
+    Description: "DNS Name for Elastic Load Balancer"
     Value: !GetAtt LoadBalancer.DNSName
+  ElbZoneId:
+    Description: "The ID of the Amazon Route 53 hosted zone associated with the load balancer"
+    Value: !GetAtt LoadBalancer.CanonicalHostedZoneID
   ElbDnsKVP:
     Description: Key-value pair for a DNS entry in a hashtable.
     Value: !Join ["=", [!Ref SvcCode,  !GetAtt LoadBalancer.DNSName]]

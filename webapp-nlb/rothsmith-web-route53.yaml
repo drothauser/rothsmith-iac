@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DNS for rothsmith.net
+Parameters:
+  PrimaryNLBDnsName:
+    Type: String
+    Description: "Primary NLB DNS host name"
+  PrimaryNLBZoneId:
+    Type: String
+    Description: "Primary NLB hosted zone id"
+  StandbyNLBDnsName:
+    Type: String
+    Description: "Standby NLB DNS host name"
+  StandbyNLBZoneId:
+    Type: String
+    Description: "Standby NLB hosted zone id"
+Resources:
+  PrimaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: "primary"      
+      SetIdentifier: "primary"
+      Type: "A"
+      Weight: 100      
+      AliasTarget:    
+        DNSName: !Join ['.', ['dualstack', !Ref PrimaryNLBDnsName]]
+        EvaluateTargetHealth: true
+        HostedZoneId: !Ref PrimaryNLBZoneId
+      HostedZoneName: "test.rothsmith.net."
+  StandbyRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: "standby"      
+      SetIdentifier: "standby"
+      Type: "A"
+      Weight: 0  
+      AliasTarget:    
+        DNSName: !Join ['.', ['dualstack', !Ref StandbyNLBDnsName]]
+        EvaluateTargetHealth: true
+        HostedZoneId: !Ref StandbyNLBZoneId
+      HostedZoneName: "test.rothsmith.net."
