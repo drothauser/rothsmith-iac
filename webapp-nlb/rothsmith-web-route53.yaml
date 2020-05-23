@@ -17,7 +17,7 @@ Resources:
   PrimaryRecordSet:
     Type: AWS::Route53::RecordSet
     Properties:
-      Name: "primary"      
+      Name: "test.rothsmith.net."      
       SetIdentifier: "primary"
       Type: "A"
       Weight: 100      
@@ -29,7 +29,7 @@ Resources:
   StandbyRecordSet:
     Type: AWS::Route53::RecordSet
     Properties:
-      Name: "standby"      
+      Name: "test.rothsmith.net."      
       SetIdentifier: "standby"
       Type: "A"
       Weight: 0  
