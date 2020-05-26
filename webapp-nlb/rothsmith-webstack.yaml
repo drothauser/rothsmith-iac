@@ -87,7 +87,7 @@ Resources:
         - ''
         - - 'https://s3.amazonaws.com/'
           - !Ref S3Bucket
-          - '/webapp-nlb/rothsmith-webapp-nlb.yaml'
+          - '/webapp-nlb/rothsmith-webapp.yaml'
       Parameters:
         ElbSNs: !Join
           - ','
@@ -128,7 +128,7 @@ Resources:
         - ''
         - - 'https://s3.amazonaws.com/'
           - !Ref S3Bucket
-          - '/webapp-nlb/rothsmith-webapp-nlb.yaml'
+          - '/webapp-nlb/rothsmith-webapp.yaml'
       Parameters:
         ElbSNs: !Join
           - ','
@@ -167,29 +167,29 @@ Resources:
     Properties:
       TemplateURL: !Join ['', ['https://s3.amazonaws.com/', !Ref S3Bucket, '/webapp-nlb/rothsmith-web-route53.yaml' ]]
       Parameters:
-        PrimaryNLBDnsName: !GetAtt [WebApp1, Outputs.ElbDnsName]
-        PrimaryNLBZoneId: !GetAtt [WebApp1, Outputs.ElbZoneId]
-        StandbyNLBDnsName: !GetAtt [WebApp2, Outputs.ElbDnsName]
-        StandbyNLBZoneId: !GetAtt [WebApp2, Outputs.ElbZoneId]     
+        PrimaryNLBDnsName: !GetAtt [WebApp1, Outputs.NlbDnsName]
+        PrimaryNLBZoneId: !GetAtt [WebApp1, Outputs.NlbZoneId]
+        StandbyNLBDnsName: !GetAtt [WebApp2, Outputs.NlbDnsName]
+        StandbyNLBZoneId: !GetAtt [WebApp2, Outputs.NlbZoneId]     
       
 Outputs:
   WebApp1URL:
     Description: Web Application 1 URL
-    Value: !Join ['', ['http://', !GetAtt [WebApp1, Outputs.ElbDnsName]]]
+    Value: !Join ['', ['http://', !GetAtt [WebApp1, Outputs.NlbDnsName]]]
     Export:
       Name: !Sub "${AWS::StackName}-WebApp1URL"
   WebApp1DNS:
     Description: Web Application 1 DNS
-    Value: !GetAtt [WebApp1, Outputs.ElbDnsName]
+    Value: !GetAtt [WebApp1, Outputs.NlbDnsName]
     Export:
       Name: !Sub "${AWS::StackName}-WebApp1DNS"      
   WebApp2URL:
     Description: Web Application 2 URL
-    Value: !Join ['', ['http://', !GetAtt [WebApp2, Outputs.ElbDnsName]]]
+    Value: !Join ['', ['http://', !GetAtt [WebApp2, Outputs.NlbDnsName]]]
     Export:
       Name: !Sub "${AWS::StackName}-WebApp2URL"
   WebApp2DNS:
     Description: Web Application 2 DNS
-    Value: !GetAtt [WebApp2, Outputs.ElbDnsName]
+    Value: !GetAtt [WebApp2, Outputs.NlbDnsName]
     Export:
       Name: !Sub "${AWS::StackName}-WebApp2DNS"

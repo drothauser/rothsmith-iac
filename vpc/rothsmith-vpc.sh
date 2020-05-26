@@ -11,7 +11,7 @@ function syntax() {
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 # Evaluate argument
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-if [ "$1" = "--help" ]; then
+if [ "$1" == "--help" ]; then
    syntax
 fi
 

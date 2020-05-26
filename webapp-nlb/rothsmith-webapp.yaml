@@ -114,7 +114,7 @@ Resources:
             type: "S3"  
             roleName: !Ref Ec2Role  
             buckets:  
-                - "rothsmith-scripts"
+                - "rothsmith-iac"
       AWS::CloudFormation::Init: 
         configSets:
           web-ui: 
@@ -122,6 +122,12 @@ Resources:
             - "tomcat"
         webProxy:
           files:
+            /root/rothsmith-route53-switch.sh: 
+              source: "https://s3.amazonaws.com/rothsmith-iac/webapp-nlb/rothsmith-route53-switch.sh"                         
+              mode: "000744"
+              owner: "root"
+              group: "root"
+              authentication: "S3AccessCreds"  
             /var/www/html/index.html: 
               content: !Sub | 
                   <html>
@@ -135,6 +141,9 @@ Resources:
               mode: "000644"
               owner: "root"
               group: "root"
+          commands:
+            1-route53-failover:
+              command: !Sub ["/root/rothsmith-route53-switch.sh ${nlbDnsName}", {nlbDnsName: !GetAtt LoadBalancer.DNSName}]
           packages: 
             yum: 
               httpd: []
@@ -146,7 +155,10 @@ Resources:
         tomcat:
           packages: 
             yum: 
-              java-1.8.0-openjdk: []              
+              java-1.8.0-openjdk: []   
+          commands:
+            1-signal-success:
+              command: !Sub '/opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com'
     Properties:
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref Ec2Role
@@ -184,15 +196,12 @@ Resources:
           Value: !Ref Ec2Desc
           PropagateAtLaunch: "true"
 Outputs:
-  ElbName:
+  NlbDnsName:
     Description: "Load Balancer Resource"
     Value: !Ref LoadBalancer
-  ElbDnsName:
+  NlbDnsName:
     Description: "DNS Name for Elastic Load Balancer"
     Value: !GetAtt LoadBalancer.DNSName
-  ElbZoneId:
+  NlbZoneId:
     Description: "The ID of the Amazon Route 53 hosted zone associated with the load balancer"
     Value: !GetAtt LoadBalancer.CanonicalHostedZoneID
-  ElbDnsKVP:
-    Description: Key-value pair for a DNS entry in a hashtable.
-    Value: !Join ["=", [!Ref SvcCode,  !GetAtt LoadBalancer.DNSName]]

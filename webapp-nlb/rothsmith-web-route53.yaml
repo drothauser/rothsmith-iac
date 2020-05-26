@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: DNS for rothsmith.net
+Description: "Route53 Record Sets for failover using the weighted method"
 Parameters:
   PrimaryNLBDnsName:
     Type: String

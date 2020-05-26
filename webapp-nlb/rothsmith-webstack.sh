@@ -5,7 +5,7 @@
 #    exit 1
 #fi
 
-templateBodyUrl='https://s3.amazonaws.com/rothsmith-iac/webapp-nlb/rothsmith-weblayer.yaml'
+templateBodyUrl='https://s3.amazonaws.com/rothsmith-iac/webapp-nlb/rothsmith-webstack.yaml'
 if [ "$1" == "--file" ]
 then
   templateBodyUrl='file://rothsmith-weblayer.yaml'
@@ -14,7 +14,7 @@ fi
 # ParameterKey=ELBSubnets,ParameterValue=\"subnet-09cd0870f808f2677\\,subnet-0386c83240089af69\" \templateBodyUrl
 # --debug\
 
-stackName="ROTHSMITH-WEBLAYER-NLB"
+stackName="ROTHSMITH-WEBSTACK"
 
 if aws cloudformation create-stack\
  --capabilities CAPABILITY_IAM \
