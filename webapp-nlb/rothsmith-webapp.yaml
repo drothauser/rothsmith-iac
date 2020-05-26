@@ -104,7 +104,6 @@ Resources:
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: 60
-      #TargetType: ip
 
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
