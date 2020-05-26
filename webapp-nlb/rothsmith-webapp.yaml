@@ -170,6 +170,10 @@ Resources:
           !Sub |
           #!/bin/bash
           /opt/aws/bin/cfn-init -v -c web-ui -s ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com          
+    CreationPolicy:
+      ResourceSignal:
+          Count: '1'
+          Timeout: PT10M          
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
