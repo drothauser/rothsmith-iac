@@ -32,9 +32,13 @@ function createChangeRequest() {
 	then
 		comment="Set Record Set to Primary"		
 		changeRecordSet=$(echo "${recordSet}" | perl -pe 's/"SetIdentifier": "\w+"/"SetIdentifier": "primary"/g' | perl -pe 's/"Weight": \w+/"Weight": 100/g')
+		# This won't work - must delete record set first.
+		#changeRecordSet=$(echo "${recordSet}" | perl -pe 's/"SetIdentifier": "\w+"/"SetIdentifier": "primary"/g' | perl -pe 's/"Failover": "\w+"/"Failover": "PRIMARY"/g')
 	else
 		comment="Set Record Set to Standby"		
 		changeRecordSet=$(echo "${recordSet}" | perl -pe 's/"SetIdentifier": "\w+"/"SetIdentifier": "standby"/g' | perl -pe 's/"Weight": \w+/"Weight": 0/g')
+		# This won't work - must delete record set first.
+		#changeRecordSet=$(echo "${recordSet}" | perl -pe 's/"SetIdentifier": "\w+"/"SetIdentifier": "primary"/g' | perl -pe 's/"Failover": "\w+"/"Failover": "SECONDARY"/g')
 	fi
 			
 	changeRequest=$(cat <<EOF

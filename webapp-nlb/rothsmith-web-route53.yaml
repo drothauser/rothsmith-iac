@@ -20,7 +20,8 @@ Resources:
       Name: "test.rothsmith.net."      
       SetIdentifier: "primary"
       Type: "A"
-      Weight: 100      
+      Weight: 100  
+      #Failover: PRIMARY    
       AliasTarget:    
         DNSName: !Join ['.', ['dualstack', !Ref PrimaryNLBDnsName]]
         EvaluateTargetHealth: true
@@ -33,6 +34,7 @@ Resources:
       SetIdentifier: "standby"
       Type: "A"
       Weight: 0  
+      #Failover: SECONDARY
       AliasTarget:    
         DNSName: !Join ['.', ['dualstack', !Ref StandbyNLBDnsName]]
         EvaluateTargetHealth: true
