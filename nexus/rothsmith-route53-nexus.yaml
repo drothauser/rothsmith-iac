@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DNS for rothsmith.net
+Parameters:
+  AppsStack:
+    Type: String
+    Default: 'ROTHSMITH-APPS'
+    Description: The application stack to obtain exported values from
+Resources:
+  NexusHostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: nexus.rothsmith.net.
+      HostedZoneConfig:
+        Comment: nexus.rothsmith.net
+  NexusRothsmithNetA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: nexus.rothsmith.net.
+      Type: A
+      AliasTarget:
+        DNSName: !Join
+          - '.'
+          - - 'dualstack'
+            - 'Fn::ImportValue': 
+                !Sub '${AppsStack}-NexusDNS'
+        EvaluateTargetHealth: false
+        HostedZoneId: Z35SXDOTRQ7X7K
+      HostedZoneId:
+        Ref: NexusHostedZone
+

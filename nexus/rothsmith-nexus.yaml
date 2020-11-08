@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Nexus Repository Resources
+Parameters:
+  AmiId:
+    Type: String
+    Description: "Amazon Machine Image ID"
+  ElbPort:
+    Type: String
+    Description: "The port the ELB listens on"
+  Ec2Port:
+    Type: String
+    Description: "The port the EC2 instance's application listens on"
+  Ec2Role:
+    Type: String
+    Description: "The EC2 Role/Profile name"
+  Ec2Type:
+    Type: String
+    Description: "The EC2 Instance Type"
+  Ec2Name:
+    Type: String
+    Description: "Tag name for the EC2 instance"
+  Ec2Desc:
+    Type: String
+    Description: "EC2 instance's description"
+  Ec2Owner:
+    Type: String    
+    Description: "The administrator of this instance's email address"
+  SvcCode:
+    Type: String
+    Description: "The service code to identify what initialization script to run in userdata"
+  ElbTier:
+    Type: String
+    Default: public
+    AllowedValues:
+      - public
+      - private
+    Description: "Will this service be public facing or in a private network layer?"
+  Scaling:
+    Type: CommaDelimitedList
+    Description: "Scaling dimensions of the Autoscaling Group - min, max, desired"
+  VPCStack:
+    Type: String
+    Default: 'ROTHSMITH-VPC'
+  HealthCheckType:
+    Type: String
+    Default: ELB
+    AllowedValues:
+      - EC2
+      - ELB
+
+Mappings:
+  TierMap:
+    public:
+      scheme: internet-facing
+    private:
+      scheme: internal
+
+Resources:
+  LoadBalancer: # Application Load Balancer
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier]]
+      Scheme: !FindInMap
+        - TierMap
+        - !Ref ElbTier
+        - scheme
+      SecurityGroups: ['Fn::ImportValue': !Sub '${VPCStack}-PublicInstanceSG']
+      Subnets: ['Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet1', 'Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet2']
+      Type: application
+      Tags:
+      - Key: Name
+        Value: !Ref Ec2Name
+  LoadBalancerListener: 
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref ElbPort
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: !Ref Ec2Port
+      Protocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 5
+      HealthCheckPath: "/"
+      HealthCheckPort: !Ref Ec2Port
+      HealthCheckIntervalSeconds: 10
+      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier, "TG"]]
+      VpcId: 
+        'Fn::ImportValue': 
+          !Sub '${VPCStack}-VPCID'
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata: 
+      AWS::CloudFormation::Authentication:  
+        S3AccessCreds:  
+            type: "S3"  
+            roleName: !Ref Ec2Role  
+            buckets:  
+                - "rothsmith-iac"
+                - "rothsmith-software"
+      AWS::CloudFormation::Init: 
+        configSets:
+          nexus: 
+            - "install"
+        install:
+          files:
+            /tmp/nexus-3.28.1-01-unix.tar.gz: 
+              source: "https://s3.amazonaws.com/rothsmith-software/nexus-3.28.1-01-unix.tar.gz"                         
+              mode: "000744"
+              owner: "root"
+              group: "root"
+              authentication: "S3AccessCreds"
+            /etc/systemd/system/nexus.service: 
+              content: !Sub | 
+               [Unit]
+               Description=Sonatype Nexus Repository Manager
+               After=network.target
+               
+               [Service]
+               Type=forking
+               ExecStart=/opt/nexus/bin/nexus start
+               ExecStop=/opt/nexus/bin/nexus stop
+               User=nexus
+               Restart=on-abort
+               #Environment=INSTALL4J_JAVA_HOME=/foo/bar/jre8
+               LimitNOFILE=65536
+               
+               [Install]
+               WantedBy=multi-user.target
+              mode: "000644"
+              owner: "root"
+              group: "root"  
+          packages: 
+            yum: 
+              java-1.8.0-openjdk: []  
+              polkit: []
+          commands:
+            1-install-nexus:
+              command: !Sub 'tar -xvf /tmp/nexus-3.28.1-01-unix.tar.gz -C /opt'
+            2-rename-nexus:
+              command: !Sub 'mv /opt/nexus* /opt/nexus'
+            2-signal-success:
+              command: !Sub '/opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com'
+          services: 
+            sysvinit: 
+              nexus: 
+                enabled: "true"
+                ensureRunning: "true"
+    Properties:
+      AssociatePublicIpAddress: true
+      IamInstanceProfile: !Ref Ec2Role
+      InstanceType: !Ref Ec2Type
+      ImageId: !Ref AmiId
+      KeyName: RothsmithKeyPair
+      SecurityGroups: ['Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnetInstanceSG']
+      UserData:
+        "Fn::Base64":
+          !Sub |
+          #!/bin/bash
+          /opt/aws/bin/cfn-init -v -c nexus -s ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com          
+    CreationPolicy:
+      ResourceSignal:
+          Count: '1'
+          Timeout: PT10M          
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      DesiredCapacity: !Select [ "2", !Ref Scaling ]
+      HealthCheckGracePeriod: 600
+      #LoadBalancerNames:
+      #- Ref: LoadBalancer
+      TargetGroupARNs: 
+        - !Ref TargetGroup
+      MinSize: !Select [ "0", !Ref Scaling ]
+      MaxSize: !Select [ "1", !Ref Scaling ]
+      VPCZoneIdentifier: ['Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet1', 'Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet2']
+      HealthCheckType: !Ref HealthCheckType
+      Tags:
+        - Key: Name
+          Value: !Ref Ec2Name
+          PropagateAtLaunch: "true"
+        - Key: Owner
+          Value: !Ref Ec2Owner
+          PropagateAtLaunch: "true"
+        - Key: Description
+          Value: !Ref Ec2Desc
+          PropagateAtLaunch: "true"
+Outputs:
+  NlbDnsName:
+    Description: "Load Balancer Resource"
+    Value: !Ref LoadBalancer
+  NlbDnsName:
+    Description: "DNS Name for Elastic Load Balancer"
+    Value: !GetAtt LoadBalancer.DNSName
+  NlbZoneId:
+    Description: "The ID of the Amazon Route 53 hosted zone associated with the load balancer"
+    Value: !GetAtt LoadBalancer.CanonicalHostedZoneID

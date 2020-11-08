@@ -1,0 +1,17 @@
+{
+    "Comment": "Update Nexus Alias resource record sets in Route 53",
+    "Changes": [
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "nexus.rothsmith.net",
+                "Type": "A",
+                "AliasTarget": {
+                    "HostedZoneId": "Z35SXDOTRQ7X7K",
+                    "DNSName": "dualstack.XXXXXXX",
+                    "EvaluateTargetHealth": false
+                }
+            }
+        }
+    ]
+}
