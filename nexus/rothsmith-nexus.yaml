@@ -34,7 +34,7 @@ Parameters:
     AllowedValues:
       - public
       - private
-    Description: "Will this service be public facing or in a private network layer?"
+    Description: "Will this service be public facing or in a private network layer?"  
   Scaling:
     Type: CommaDelimitedList
     Description: "Scaling dimensions of the Autoscaling Group - min, max, desired"
@@ -47,6 +47,9 @@ Parameters:
     AllowedValues:
       - EC2
       - ELB
+  NexusVersion:
+    Type: String    
+    Description: "Version of Nexus OSS Repository installation package"
 
 Mappings:
   TierMap:
@@ -112,8 +115,24 @@ Resources:
       AWS::CloudFormation::Init: 
         configSets:
           nexus: 
+            - "setup"
             - "install"
+        setup:
+          1-mkdir-nexus:
+           command: "mkdir /opt/nexus-dir"
         install:
+          packages: 
+            yum: 
+              java-1.8.0-openjdk: []  
+              polkit: []
+          groups: 
+            nexus: {}
+          users: 
+            nexus: 
+              groups: 
+                - "users"
+              uid: "200"
+              homeDir: "/opt/nexus"
           files:
             /tmp/nexus-3.28.1-01-unix.tar.gz: 
               source: "https://s3.amazonaws.com/rothsmith-software/nexus-3.28.1-01-unix.tar.gz"                         
@@ -141,13 +160,15 @@ Resources:
               mode: "000644"
               owner: "root"
               group: "root"  
-          packages: 
-            yum: 
-              java-1.8.0-openjdk: []  
-              polkit: []
           commands:
             1-install-nexus:
-              command: !Sub 'tar -xvf /tmp/nexus-3.28.1-01-unix.tar.gz -C /opt'
+              command: !Sub | 
+                mkdir /opt/nexus-dir
+                tar -xvf /tmp/nexus-${NexusVersion}-unix.tar.gz -C /opt/nexus-dir
+                ln -s /opt/nexus-dir/nexus-${NexusVersion} /opt/nexus-current
+                ln -s /opt/nexus-current /opt/nexus
+                chown -R nexus:nexus /opt/nexus
+                #rm -rf /tmp/nexus-${NexusVersion}-unix.tar.gz
             2-rename-nexus:
               command: !Sub 'mv /opt/nexus* /opt/nexus'
             2-signal-success:
