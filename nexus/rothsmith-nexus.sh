@@ -10,10 +10,10 @@ ElbPort="80"
 Ec2Port="8081"
 Scaling='1,1,1'
 Ec2Type="t2.medium"
-Ec2Name='Nexus-OSS-Server'
-Ec2Desc="Nexus_Repository_Manager"
+Ec2Name='Nexus'
+Ec2Desc="Nexus_OSS"
 Ec2Owner="drothauser@yahoo.com"
-SvcCode="nexus"
+SvcCode="rothsmith"
 ElbTier="public"
 Ec2Role="DevOps"
 NexusVersion="3.28.1-01"
@@ -54,7 +54,7 @@ then
    then
       echo "$stackName stack has been created."
       echo "Updating nexus.rothsmith.net Route 53 record alias target with ELB host"
-      ./nexus-route53.sh
+      bash ./nexus-route53.sh
    fi
 fi
 

@@ -4,9 +4,15 @@ Parameters:
   AmiId:
     Type: String
     Description: "Amazon Machine Image ID"
-  ElbPort:
+  Ec2Desc:
     Type: String
-    Description: "The port the ELB listens on"
+    Description: "EC2 instance's description use in its tag."
+  Ec2Name:
+    Type: String
+    Description: "EC2 instance name referenced in various resources"
+  Ec2Owner:
+    Type: String    
+    Description: "The administrator of this instance's email address"
   Ec2Port:
     Type: String
     Description: "The port the EC2 instance's application listens on"
@@ -16,18 +22,9 @@ Parameters:
   Ec2Type:
     Type: String
     Description: "The EC2 Instance Type"
-  Ec2Name:
+  ElbPort:
     Type: String
-    Description: "Tag name for the EC2 instance"
-  Ec2Desc:
-    Type: String
-    Description: "EC2 instance's description"
-  Ec2Owner:
-    Type: String    
-    Description: "The administrator of this instance's email address"
-  SvcCode:
-    Type: String
-    Description: "The service code to identify what initialization script to run in userdata"
+    Description: "The port the ELB listens on"
   ElbTier:
     Type: String
     Default: public
@@ -35,12 +32,6 @@ Parameters:
       - public
       - private
     Description: "Will this service be public facing or in a private network layer?"  
-  Scaling:
-    Type: CommaDelimitedList
-    Description: "Scaling dimensions of the Autoscaling Group - min, max, desired"
-  VPCStack:
-    Type: String
-    Default: 'ROTHSMITH-VPC'
   HealthCheckType:
     Type: String
     Default: ELB
@@ -50,6 +41,15 @@ Parameters:
   NexusVersion:
     Type: String    
     Description: "Version of Nexus OSS Repository installation package"
+  Scaling:
+    Type: CommaDelimitedList
+    Description: "Scaling dimensions of the Autoscaling Group - min, max, desired"
+  SvcCode:
+    Type: String
+    Description: "The service code to identify what initialization script to run in userdata"
+  VPCStack:
+    Type: String
+    Default: 'ROTHSMITH-VPC'
 
 Mappings:
   TierMap:
@@ -129,8 +129,8 @@ Resources:
               uid: "200"
               homeDir: "/opt/nexus"
           files:
-            /tmp/nexus-3.28.1-01-unix.tar.gz: 
-              source: "https://s3.amazonaws.com/rothsmith-software/nexus-3.28.1-01-unix.tar.gz"                         
+            /tmp/nexus.tar.gz: 
+              source: !Join ["", ["https://s3.amazonaws.com/rothsmith-software/nexus-", !Ref NexusVersion, "-unix.tar.gz"]]
               mode: "000744"
               owner: "root"
               group: "root"
@@ -159,11 +159,11 @@ Resources:
             1-install-nexus:
               command: !Sub | 
                 mkdir /opt/nexus-dir
-                tar -xvf /tmp/nexus-${NexusVersion}-unix.tar.gz -C /opt/nexus-dir
+                tar -xvf /tmp/nexus.tar.gz -C /opt/nexus-dir
                 ln -s /opt/nexus-dir/nexus-${NexusVersion} /opt/nexus-current
                 ln -s /opt/nexus-current /opt/nexus
                 chown -R nexus:nexus /opt/nexus*
-                #rm -rf /tmp/nexus-${NexusVersion}-unix.tar.gz
+                #rm -rf /tmp/nexus*
           services: 
             sysvinit: 
               nexus: 
