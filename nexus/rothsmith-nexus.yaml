@@ -68,7 +68,7 @@ Resources:
         - !Ref ElbTier
         - scheme
       SecurityGroups: ['Fn::ImportValue': !Sub '${VPCStack}-PublicInstanceSG']
-      Subnets: ['Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet1', 'Fn::ImportValue': !Sub '${VPCStack}-PrivateSubnet2']
+      Subnets: ['Fn::ImportValue': !Sub '${VPCStack}-PublicSubnet1', 'Fn::ImportValue': !Sub '${VPCStack}-PublicSubnet2']
       Type: application
       Tags:
       - Key: Name
@@ -102,7 +102,7 @@ Resources:
         - Key: deregistration_delay.timeout_seconds
           Value: 60
 
-  LaunchConfiguration:
+  NexusLaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Metadata: 
       AWS::CloudFormation::Authentication:  
@@ -115,18 +115,13 @@ Resources:
       AWS::CloudFormation::Init: 
         configSets:
           nexus: 
-            - "setup"
             - "install"
-        setup:
-          1-mkdir-nexus:
-           command: "mkdir /opt/nexus-dir"
+            - "finish"
         install:
           packages: 
             yum: 
               java-1.8.0-openjdk: []  
               polkit: []
-          groups: 
-            nexus: {}
           users: 
             nexus: 
               groups: 
@@ -167,17 +162,22 @@ Resources:
                 tar -xvf /tmp/nexus-${NexusVersion}-unix.tar.gz -C /opt/nexus-dir
                 ln -s /opt/nexus-dir/nexus-${NexusVersion} /opt/nexus-current
                 ln -s /opt/nexus-current /opt/nexus
-                chown -R nexus:nexus /opt/nexus
+                chown -R nexus:nexus /opt/nexus*
                 #rm -rf /tmp/nexus-${NexusVersion}-unix.tar.gz
-            2-rename-nexus:
-              command: !Sub 'mv /opt/nexus* /opt/nexus'
-            2-signal-success:
-              command: !Sub '/opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com'
           services: 
             sysvinit: 
               nexus: 
                 enabled: "true"
                 ensureRunning: "true"
+        finish:
+          commands:
+            1-signal-success:
+              command: !Sub |
+                /opt/aws/bin/cfn-signal -e 0 \
+                --stack ${AWS::StackName} \
+                --resource NexusASG \
+                --region=${AWS::Region} \
+                --url=https://cloudformation.${AWS::Region}.amazonaws.com
     Properties:
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref Ec2Role
@@ -189,15 +189,15 @@ Resources:
         "Fn::Base64":
           !Sub |
           #!/bin/bash
-          /opt/aws/bin/cfn-init -v -c nexus -s ${AWS::StackName} -r LaunchConfiguration --region=${AWS::Region} --url=https://cloudformation.${AWS::Region}.amazonaws.com          
-    CreationPolicy:
-      ResourceSignal:
-          Count: '1'
-          Timeout: PT10M          
-  AutoScalingGroup:
+          /opt/aws/bin/cfn-init -v -c nexus \
+          -s ${AWS::StackName} \
+          --resource NexusLaunchConfiguration \
+          --region=${AWS::Region} \
+          --url=https://cloudformation.${AWS::Region}.amazonaws.com          
+  NexusASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      LaunchConfigurationName: !Ref LaunchConfiguration
+      LaunchConfigurationName: !Ref NexusLaunchConfiguration
       DesiredCapacity: !Select [ "2", !Ref Scaling ]
       HealthCheckGracePeriod: 600
       #LoadBalancerNames:
@@ -218,6 +218,16 @@ Resources:
         - Key: Description
           Value: !Ref Ec2Desc
           PropagateAtLaunch: "true"
+    UpdatePolicy:
+      AutoScalingRollingUpdates:
+          MaxBatchSize: 1
+          MinInstancesInService: 1          
+          PauseTime: PT10M
+          WaitOnResourceSignals: true
+    CreationPolicy:
+      ResourceSignal:
+          Count: '1'
+          Timeout: PT10M 
 Outputs:
   NlbDnsName:
     Description: "Load Balancer Resource"
