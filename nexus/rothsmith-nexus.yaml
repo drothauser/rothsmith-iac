@@ -4,21 +4,9 @@ Parameters:
   AmiId:
     Type: String
     Description: "Amazon Machine Image ID"
-  Ec2Desc:
-    Type: String
-    Description: "EC2 instance's description use in its tag."
-  Ec2Name:
-    Type: String
-    Description: "EC2 instance name referenced in various resources"
-  Ec2Owner:
-    Type: String    
-    Description: "The administrator of this instance's email address"
   Ec2Port:
     Type: String
     Description: "The port the EC2 instance's application listens on"
-  Ec2Role:
-    Type: String
-    Description: "The EC2 Role/Profile name"
   Ec2Type:
     Type: String
     Description: "The EC2 Instance Type"
@@ -44,9 +32,21 @@ Parameters:
   Scaling:
     Type: CommaDelimitedList
     Description: "Scaling dimensions of the Autoscaling Group - min, max, desired"
-  SvcCode:
+  OrgCode:
     Type: String
-    Description: "The service code to identify what initialization script to run in userdata"
+    Description: "The organization code of the service provider."
+  Owner:
+    Type: String    
+    Description: "The administrator of this instance's email address"
+  ServiceDesc:
+    Type: String
+    Description: "The service description"
+  ServiceName:
+    Type: String
+    Description: "Service name referenced in various resources"
+  ServiceProfile:
+    Type: String
+    Description: "The EC2 Role/Profile name"
   VPCStack:
     Type: String
     Default: 'ROTHSMITH-VPC'
@@ -62,7 +62,7 @@ Resources:
   LoadBalancer: # Application Load Balancer
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier]]
+      Name: !Join ["-", [!Ref OrgCode, !Ref ServiceName, !Ref ElbTier]]
       Scheme: !FindInMap
         - TierMap
         - !Ref ElbTier
@@ -72,7 +72,7 @@ Resources:
       Type: application
       Tags:
       - Key: Name
-        Value: !Ref Ec2Name
+        Value: !Ref ServiceName
   LoadBalancerListener: 
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -94,7 +94,7 @@ Resources:
       HealthCheckPath: "/"
       HealthCheckPort: !Ref Ec2Port
       HealthCheckIntervalSeconds: 10
-      Name: !Join ["-", [!Ref SvcCode, !Ref Ec2Name, !Ref ElbTier, "TG"]]
+      Name: !Join ["-", [!Ref OrgCode, !Ref ServiceName, !Ref ElbTier, "TG"]]
       VpcId: 
         'Fn::ImportValue': 
           !Sub '${VPCStack}-VPCID'
@@ -108,7 +108,7 @@ Resources:
       AWS::CloudFormation::Authentication:  
         S3AccessCreds:  
             type: "S3"  
-            roleName: !Ref Ec2Role  
+            roleName: !Ref ServiceProfile  
             buckets:  
                 - "rothsmith-iac"
                 - "rothsmith-software"
@@ -180,7 +180,7 @@ Resources:
                 --url=https://cloudformation.${AWS::Region}.amazonaws.com
     Properties:
       AssociatePublicIpAddress: true
-      IamInstanceProfile: !Ref Ec2Role
+      IamInstanceProfile: !Ref ServiceProfile
       InstanceType: !Ref Ec2Type
       ImageId: !Ref AmiId
       KeyName: RothsmithKeyPair
@@ -210,13 +210,13 @@ Resources:
       HealthCheckType: !Ref HealthCheckType
       Tags:
         - Key: Name
-          Value: !Ref Ec2Name
+          Value: !Ref ServiceName
           PropagateAtLaunch: "true"
         - Key: Owner
-          Value: !Ref Ec2Owner
+          Value: !Ref Owner
           PropagateAtLaunch: "true"
         - Key: Description
-          Value: !Ref Ec2Desc
+          Value: !Ref ServiceDesc
           PropagateAtLaunch: "true"
     UpdatePolicy:
       AutoScalingRollingUpdates:

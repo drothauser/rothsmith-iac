@@ -10,12 +10,12 @@ ElbPort="80"
 Ec2Port="8081"
 Scaling='1,1,1'
 Ec2Type="t2.medium"
-Ec2Name='Nexus'
-Ec2Desc="Nexus_OSS"
-Ec2Owner="drothauser@yahoo.com"
-SvcCode="rothsmith"
+Owner="drothauser@yahoo.com"
+OrgCode="rothsmith"
+ServiceDesc="Nexus_OSS"
+ServiceName='Nexus'
 ElbTier="public"
-Ec2Role="DevOps"
+ServiceProfile="DevOps"
 NexusVersion="3.28.1-01"
 VPCStack="ROTHSMITH-VPC"
 HealthCheckType="ELB"
@@ -38,12 +38,12 @@ if aws cloudformation create-stack\
     ParameterKey=Ec2Port,ParameterValue=\"${Ec2Port}\" \
     ParameterKey=Scaling,ParameterValue=\"${Scaling}\" \
     ParameterKey=Ec2Type,ParameterValue=\"${Ec2Type}\" \
-    ParameterKey=Ec2Name,ParameterValue=\"${Ec2Name}\" \
-    ParameterKey=Ec2Desc,ParameterValue=\"${Ec2Desc}\" \
-    ParameterKey=Ec2Owner,ParameterValue=\"${Ec2Owner}\" \
-    ParameterKey=SvcCode,ParameterValue=\"${SvcCode}\" \
+    ParameterKey=ServiceName,ParameterValue=\"${ServiceName}\" \
+    ParameterKey=ServiceDesc,ParameterValue=\"${ServiceDesc}\" \
+    ParameterKey=Owner,ParameterValue=\"${Owner}\" \
+    ParameterKey=OrgCode,ParameterValue=\"${OrgCode}\" \
     ParameterKey=ElbTier,ParameterValue=\"${ElbTier}\" \
-    ParameterKey=Ec2Role,ParameterValue=\"${Ec2Role}\" \
+    ParameterKey=ServiceProfile,ParameterValue=\"${ServiceProfile}\" \
     ParameterKey=NexusVersion,ParameterValue=\"${NexusVersion}\" \
     ParameterKey=VPCStack,ParameterValue=\"${VPCStack}\" \
     ParameterKey=HealthCheckType,ParameterValue=\"${HealthCheckType}\"
